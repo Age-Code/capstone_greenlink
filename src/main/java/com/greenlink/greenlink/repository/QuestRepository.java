@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface QuestRepository extends JpaRepository<Quest, Long> {
+    List<Quest> findAllByDeletedFalse();
 
     List<Quest> findAllByActiveTrueAndDeletedFalse();
 

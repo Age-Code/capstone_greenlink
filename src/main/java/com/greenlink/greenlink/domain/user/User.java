@@ -50,8 +50,7 @@ public class User extends BaseEntity {
             UserRole role,
             LoginProvider provider,
             String providerId,
-            String profileImageUrl
-    ) {
+            String profileImageUrl) {
         this.email = email;
         this.password = password;
         this.nickname = nickname;
@@ -69,8 +68,7 @@ public class User extends BaseEntity {
                 UserRole.USER,
                 LoginProvider.LOCAL,
                 null,
-                null
-        );
+                null);
     }
 
     public static User createAdmin(String email, String encodedPassword, String nickname) {
@@ -81,8 +79,7 @@ public class User extends BaseEntity {
                 UserRole.ADMIN,
                 LoginProvider.LOCAL,
                 null,
-                null
-        );
+                null);
     }
 
     public static User createOAuthUser(
@@ -91,8 +88,7 @@ public class User extends BaseEntity {
             String nickname,
             LoginProvider provider,
             String providerId,
-            String profileImageUrl
-    ) {
+            String profileImageUrl) {
         return new User(
                 email,
                 encodedPassword,
@@ -100,11 +96,12 @@ public class User extends BaseEntity {
                 UserRole.USER,
                 provider,
                 providerId,
-                profileImageUrl
-        );
+                profileImageUrl);
     }
 
-
+    public void toggleRole() {
+        this.role = (this.role == UserRole.USER) ? UserRole.ADMIN : UserRole.USER;
+    }
 
     public void updateNickname(String nickname) {
         this.nickname = nickname;

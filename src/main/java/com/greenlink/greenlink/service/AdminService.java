@@ -32,8 +32,7 @@ public class AdminService {
                 request.getCategory(),
                 request.getDescription(),
                 request.getImageUrl(),
-                request.getGrowthDays()
-        );
+                request.getGrowthDays());
 
         Plant savedPlant = plantRepository.save(plant);
 
@@ -60,20 +59,17 @@ public class AdminService {
                     request.getName(),
                     request.getDescription(),
                     request.getImageUrl(),
-                    linkedPlant
-            );
+                    linkedPlant);
         } else if (request.getItemType() == ItemType.POT) {
             item = Item.createPot(
                     request.getName(),
                     request.getDescription(),
-                    request.getImageUrl()
-            );
+                    request.getImageUrl());
         } else if (request.getItemType() == ItemType.NUTRIENT) {
             item = Item.createNutrient(
                     request.getName(),
                     request.getDescription(),
-                    request.getImageUrl()
-            );
+                    request.getImageUrl());
         } else {
             throw new IllegalArgumentException("지원하지 않는 아이템 타입입니다.");
         }
@@ -108,11 +104,82 @@ public class AdminService {
                 request.getTargetValue(),
                 rewardItem,
                 request.getRewardQuantity(),
-                request.getResetCycle()
-        );
+                request.getResetCycle());
 
         Quest savedQuest = questRepository.save(quest);
 
         return AdminDto.QuestResDto.from(savedQuest);
+    }
+
+    private final com.greenlink.greenlink.repository.UserRepository userRepository;
+    private final com.greenlink.greenlink.repository.IotDeviceRepository iotDeviceRepository;
+    private final com.greenlink.greenlink.repository.GrowSpaceRepository growSpaceRepository;
+    private final com.greenlink.greenlink.repository.UserPlantRepository userPlantRepository;
+
+    public java.util.List<com.greenlink.greenlink.domain.user.User> getAllUsers() {
+        return userRepository.findAllByDeletedFalse();
+    }
+
+    public com.greenlink.greenlink.domain.user.User getUser(Long id) {
+        return userRepository.findById(id).orElse(null);
+    }
+
+    @Transactional
+    public void toggleUserRole(Long id) {
+        userRepository.findById(id).ifPresent(com.greenlink.greenlink.domain.user.User::toggleRole);
+    }
+
+    @Transactional
+    public void deleteUser(Long id) {
+        userRepository.findById(id).ifPresent(com.greenlink.greenlink.domain.user.User::delete);
+    }
+
+    public java.util.List<Plant> getAllPlants() {
+        return plantRepository.findAllByDeletedFalse();
+    }
+
+    public java.util.List<Item> getAllItems() {
+        return itemRepository.findAllByDeletedFalse();
+    }
+
+    public java.util.List<Quest> getAllQuests() {
+        return questRepository.findAllByDeletedFalse();
+    }
+
+    public java.util.List<com.greenlink.greenlink.domain.iot.IotDevice> getAllIotDevices() {
+        return iotDeviceRepository.findAllByDeletedFalse();
+    }
+
+    @Transactional
+    public AdminDto.IotDeviceResDto createIotDevice(AdminDto.CreateIotDeviceReqDto request) {
+        if (iotDeviceRepository.existsByDeviceKeyAndDeletedFalse(request.getDeviceKey())) {
+            throw new IllegalArgumentException("이미 존재하는 기기 키입니다.");
+        }
+
+        com.greenlink.greenlink.domain.iot.IotDevice device;
+
+        if (request.getDeviceType() == com.greenlink.greenlink.domain.iot.DeviceType.RASPBERRY_PI) {
+            if (request.getGrowSpaceId() == null) {
+                throw new IllegalArgumentException("라즈베리파이는 GrowSpace ID가 필요합니다.");
+            }
+            com.greenlink.greenlink.domain.iot.GrowSpace growSpace = growSpaceRepository.findByIdAndDeletedFalse(request.getGrowSpaceId())
+                    .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 GrowSpace ID입니다."));
+            device = com.greenlink.greenlink.domain.iot.IotDevice.createRaspberryPi(growSpace, request.getDeviceName(), request.getDeviceKey());
+        } else if (request.getDeviceType() == com.greenlink.greenlink.domain.iot.DeviceType.ESP32) {
+            if (request.getUserPlantId() == null) {
+                throw new IllegalArgumentException("ESP32는 UserPlant ID가 필요합니다.");
+            }
+            com.greenlink.greenlink.domain.iot.GrowSpace growSpace = null;
+            if (request.getGrowSpaceId() != null) {
+                 growSpace = growSpaceRepository.findByIdAndDeletedFalse(request.getGrowSpaceId()).orElse(null);
+            }
+            com.greenlink.greenlink.domain.plant.UserPlant userPlant = userPlantRepository.findByIdAndDeletedFalse(request.getUserPlantId())
+                    .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 UserPlant ID입니다."));
+            device = com.greenlink.greenlink.domain.iot.IotDevice.createEsp32(growSpace, userPlant, request.getDeviceName(), request.getDeviceKey());
+        } else {
+            throw new IllegalArgumentException("지원하지 않는 기기 타입입니다.");
+        }
+
+        return AdminDto.IotDeviceResDto.from(iotDeviceRepository.save(device));
     }
 }

@@ -205,4 +205,58 @@ public class AdminDto {
                     .build();
         }
     }
+
+    /**
+     * 관리자 IoT 기기 등록 요청 DTO
+     */
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CreateIotDeviceReqDto {
+        @NotBlank(message = "기기 이름은 필수입니다.")
+        private String deviceName;
+
+        @NotNull(message = "기기 타입은 필수입니다.")
+        private com.greenlink.greenlink.domain.iot.DeviceType deviceType;
+
+        @NotBlank(message = "기기 고유 키는 필수입니다.")
+        private String deviceKey;
+
+        private Long growSpaceId;
+        private Long userPlantId;
+    }
+
+    /**
+     * 관리자 IoT 기기 응답 DTO
+     */
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class IotDeviceResDto {
+        private Long deviceId;
+        private String deviceName;
+        private com.greenlink.greenlink.domain.iot.DeviceType deviceType;
+        private String deviceKey;
+        private Boolean active;
+        private Long growSpaceId;
+        private Long userPlantId;
+
+        public static IotDeviceResDto from(com.greenlink.greenlink.domain.iot.IotDevice iotDevice) {
+            Long growSpaceId = iotDevice.getGrowSpace() == null ? null : iotDevice.getGrowSpace().getId();
+            Long userPlantId = iotDevice.getUserPlant() == null ? null : iotDevice.getUserPlant().getId();
+            
+            return IotDeviceResDto.builder()
+                    .deviceId(iotDevice.getId())
+                    .deviceName(iotDevice.getDeviceName())
+                    .deviceType(iotDevice.getDeviceType())
+                    .deviceKey(iotDevice.getDeviceKey())
+                    .active(iotDevice.getActive())
+                    .growSpaceId(growSpaceId)
+                    .userPlantId(userPlantId)
+                    .build();
+        }
+    }
 }

@@ -51,13 +51,38 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
 
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            String path = request.getServletPath();
+                            if (path.startsWith("/admin") && !path.contains("/login")) {
+                                response.sendRedirect("/admin/login");
+                            } else {
+                                response.sendError(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+                            }
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            String path = request.getServletPath();
+                            if (path.startsWith("/admin") && !path.contains("/login")) {
+                                response.sendRedirect("/admin/login");
+                            } else {
+                                response.sendError(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN, "Forbidden");
+                            }
+                        })
+                )
                 .authorizeHttpRequests(auth -> auth
                         // 인증 없이 허용
                         .requestMatchers("/api/auth/signup", "/api/auth/login").permitAll()
 
-                        // 개발 초기 데이터 등록용
-                        // 실제 운영에서는 ADMIN 권한으로 제한해야 함
-                        .requestMatchers("/api/admin/**").permitAll()
+                        // Static resources
+                        .requestMatchers("/css/**", "/js/**", "/img/**", "/sb-admin/**", "/vendor/**", "/favicon.ico").permitAll()
+
+                        // Admin Web - Permit both with and without trailing slash
+                        .requestMatchers("/admin/login", "/admin/login/").permitAll()
+                        .requestMatchers("/admin", "/admin/").hasRole("ADMIN")
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
+
+                        // Admin API
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
                         // 마스터 조회는 공개 가능
                         .requestMatchers("/api/plants/**").permitAll()
@@ -65,17 +90,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/quests/**").permitAll()
 
                         // IoT 기기용 API
-                        // JWT가 아니라 X-DEVICE-KEY로 서비스 내부에서 검증
-                        .requestMatchers("/api/iot/raspberry/**").permitAll()
-                        .requestMatchers("/api/iot/esp/**").permitAll()
-                        .requestMatchers("/api/iot/commands/**").permitAll()
-                        .requestMatchers("/api/iot/plant-images").permitAll()
-                        .requestMatchers(
-                                "/api/auth/signup",
-                                "/api/auth/login",
-                                "/api/auth/oauth/kakao",
-                                "/api/auth/oauth/google"
-                        ).permitAll()
+                        .requestMatchers("/api/iot/raspberry/**", "/api/iot/esp/**", "/api/iot/commands/**", "/api/iot/plant-images").permitAll()
+                        .requestMatchers("/api/auth/oauth/kakao", "/api/auth/oauth/google").permitAll()
+                        
+                        .requestMatchers("/error").permitAll()
 
                         // 그 외 API는 JWT 인증 필요
                         .anyRequest().authenticated()

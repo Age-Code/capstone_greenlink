@@ -14,6 +14,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByProviderAndProviderIdAndDeletedFalse(
             LoginProvider provider,
-            String providerId
-    );
+            String providerId);
+
+    java.util.List<User> findAllByDeletedFalse();
 }
