@@ -16,6 +16,8 @@ public interface UserItemRepository extends JpaRepository<UserItem, Long> {
 
     Optional<UserItem> findByIdAndUserAndDeletedFalse(Long id, User user);
 
+    boolean existsByUserAndItemAndDeletedFalse(User user, Item item);
+
     List<UserItem> findAllByUserAndDeletedFalse(User user);
 
     List<UserItem> findAllByUserAndStatusAndDeletedFalse(

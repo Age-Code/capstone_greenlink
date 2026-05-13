@@ -53,9 +53,9 @@ public class AuthService {
 
         User savedUser = userRepository.save(user);
 
-        List<UserItem> grantedItems = grantDefaultItems(savedUser);
+        List<UserItem> grantedItems = grantDefaultItemsIfMissing(savedUser);
 
-        createAchievementUserQuests(savedUser);
+        createAchievementUserQuestsIfMissing(savedUser);
 
         return AuthDto.SignupResDto.of(savedUser, grantedItems);
     }
@@ -86,6 +86,15 @@ public class AuthService {
                 )
                 .orElseGet(() -> createOAuthUserFromOAuthInfo(userInfo));
 
+        /*
+         * 중요:
+         * 기존에 OAuth로 가입되어 있었지만 기본 아이템을 못 받은 유저를 보정한다.
+         * 이미 받은 유저는 중복 지급되지 않는다.
+         */
+        grantDefaultItemsIfMissing(user);
+
+        createAchievementUserQuestsIfMissing(user);
+
         String accessToken = jwtTokenProvider.createAccessToken(
                 user.getId(),
                 user.getEmail(),
@@ -109,13 +118,7 @@ public class AuthService {
                 userInfo.getProfileImageUrl()
         );
 
-        User savedUser = userRepository.save(user);
-
-        grantDefaultItems(savedUser);
-
-        createAchievementUserQuests(savedUser);
-
-        return savedUser;
+        return userRepository.save(user);
     }
 
     private void validateDuplicateEmail(String email) {
@@ -124,7 +127,7 @@ public class AuthService {
         }
     }
 
-    private List<UserItem> grantDefaultItems(User user) {
+    private List<UserItem> grantDefaultItemsIfMissing(User user) {
         Item basilSeed = itemRepository.findByNameAndDeletedFalse(DEFAULT_SEED_NAME)
                 .orElseThrow(() -> new IllegalStateException("기본 지급 아이템인 바질 씨앗이 등록되어 있지 않습니다."));
 
@@ -133,19 +136,51 @@ public class AuthService {
 
         List<UserItem> grantedItems = new ArrayList<>();
 
-        grantedItems.add(userItemRepository.save(UserItem.createOwned(user, basilSeed)));
-        grantedItems.add(userItemRepository.save(UserItem.createOwned(user, basicPot)));
+        boolean hasBasilSeed = userItemRepository.existsByUserAndItemAndDeletedFalse(
+                user,
+                basilSeed
+        );
+
+        if (!hasBasilSeed) {
+            UserItem basilSeedItem = userItemRepository.save(
+                    UserItem.createOwned(user, basilSeed)
+            );
+            grantedItems.add(basilSeedItem);
+        }
+
+        boolean hasBasicPot = userItemRepository.existsByUserAndItemAndDeletedFalse(
+                user,
+                basicPot
+        );
+
+        if (!hasBasicPot) {
+            UserItem basicPotItem = userItemRepository.save(
+                    UserItem.createOwned(user, basicPot)
+            );
+            grantedItems.add(basicPotItem);
+        }
 
         return grantedItems;
     }
 
-    private void createAchievementUserQuests(User user) {
+    private void createAchievementUserQuestsIfMissing(User user) {
         List<Quest> achievementQuests =
-                questRepository.findAllByQuestTypeAndActiveTrueAndDeletedFalse(QuestType.ACHIEVEMENT);
+                questRepository.findAllByQuestTypeAndActiveTrueAndDeletedFalse(
+                        QuestType.ACHIEVEMENT
+                );
 
         LocalDateTime now = LocalDateTime.now();
 
         for (Quest quest : achievementQuests) {
+            boolean alreadyExists = userQuestRepository.existsByUserAndQuestAndDeletedFalse(
+                    user,
+                    quest
+            );
+
+            if (alreadyExists) {
+                continue;
+            }
+
             UserQuest userQuest = UserQuest.create(user, quest, now);
             userQuestRepository.save(userQuest);
         }

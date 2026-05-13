@@ -17,6 +17,8 @@ public interface UserQuestRepository extends JpaRepository<UserQuest, Long> {
 
     List<UserQuest> findAllByUserAndDeletedFalse(User user);
 
+    boolean existsByUserAndQuestAndDeletedFalse(User user, Quest quest);
+
     List<UserQuest> findAllByUserAndQuest_QuestTypeAndDeletedFalse(
             User user,
             QuestType questType
