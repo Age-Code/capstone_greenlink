@@ -7,6 +7,7 @@ import com.greenlink.greenlink.domain.iot.EspSensorData;
 import com.greenlink.greenlink.domain.iot.GrowSpace;
 import com.greenlink.greenlink.domain.iot.PlantImage;
 import com.greenlink.greenlink.domain.iot.RaspberrySensorData;
+import com.greenlink.greenlink.domain.ai.AiPlantImage;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -44,14 +45,15 @@ public class IotAppDto {
                 GrowSpace growSpace,
                 RaspberrySensorData raspberrySensorData,
                 EspSensorData espSensorData,
-                PlantImage latestImage
+                PlantImage latestImage,
+                AiPlantImage latestAiImage
         ) {
             return IotLatestResDto.builder()
                     .userPlantId(userPlantId)
                     .growSpace(GrowSpaceSimpleDto.from(growSpace))
                     .environment(EnvironmentDto.from(raspberrySensorData))
                     .soil(SoilDto.from(espSensorData))
-                    .latestImage(PlantImageDto.from(latestImage))
+                    .latestImage(PlantImageDto.from(latestImage, latestAiImage))
                     .build();
         }
     }
@@ -143,14 +145,6 @@ public class IotAppDto {
         }
     }
 
-    /**
-     * 식물 이미지 DTO
-     *
-     * GET /api/user-plants/{userPlantId}/iot/images
-     * GET /api/user-plants/{userPlantId}/iot/latest
-     *
-     * 두 API에서 공통으로 사용한다.
-     */
     @Getter
     @Setter
     @Builder
@@ -158,18 +152,41 @@ public class IotAppDto {
     @AllArgsConstructor
     public static class PlantImageDto {
         private Long plantImageId;
+
+        /**
+         * 라즈베리파이 원본 이미지 URL
+         */
         private String imageUrl;
+
+        /**
+         * AI 변환 이미지 URL
+         * 값이 있으면 앱에서는 이 이미지를 우선 표시한다.
+         */
+        private String aiImageUrl;
+
         private LocalDateTime capturedAt;
 
-        public static PlantImageDto from(PlantImage image) {
-            if (image == null) {
+        public static PlantImageDto from(PlantImage plantImage) {
+            return from(plantImage, null);
+        }
+
+        public static PlantImageDto from(
+                PlantImage plantImage,
+                AiPlantImage aiPlantImage
+        ) {
+            if (plantImage == null) {
                 return null;
             }
 
+            String aiImageUrl = aiPlantImage == null
+                    ? null
+                    : aiPlantImage.getAiImageUrl();
+
             return PlantImageDto.builder()
-                    .plantImageId(image.getId())
-                    .imageUrl(image.getImageUrl())
-                    .capturedAt(image.getCapturedAt())
+                    .plantImageId(plantImage.getId())
+                    .imageUrl(plantImage.getImageUrl())
+                    .aiImageUrl(aiImageUrl)
+                    .capturedAt(plantImage.getCapturedAt())
                     .build();
         }
     }
@@ -212,6 +229,39 @@ public class IotAppDto {
                     .commandType(command.getCommandType())
                     .commandStatus(command.getCommandStatus())
                     .durationSeconds(command.getDurationSeconds())
+                    .requestedAt(command.getRequestedAt())
+                    .build();
+        }
+    }
+
+    /**
+     * 조명 명령 응답 DTO
+     *
+     * POST /api/user-plants/{userPlantId}/iot/light/on
+     * POST /api/user-plants/{userPlantId}/iot/light/off
+     */
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class LightCommandResDto {
+        private Long commandId;
+        private Long userPlantId;
+        private Long growSpaceId;
+        private Long deviceId;
+        private CommandType commandType;
+        private CommandStatus commandStatus;
+        private LocalDateTime requestedAt;
+
+        public static LightCommandResDto from(DeviceCommand command) {
+            return LightCommandResDto.builder()
+                    .commandId(command.getId())
+                    .userPlantId(command.getUserPlant().getId())
+                    .growSpaceId(command.getGrowSpace().getId())
+                    .deviceId(command.getIotDevice().getId())
+                    .commandType(command.getCommandType())
+                    .commandStatus(command.getCommandStatus())
                     .requestedAt(command.getRequestedAt())
                     .build();
         }

@@ -119,6 +119,27 @@ public class DeviceCommand {
                 .build();
     }
 
+    public static DeviceCommand createLightCommand(
+            GrowSpace growSpace,
+            UserPlant userPlant,
+            IotDevice raspberryDevice,
+            CommandType commandType
+    ) {
+        if (commandType != CommandType.LIGHT_ON &&
+                commandType != CommandType.LIGHT_OFF) {
+            throw new IllegalArgumentException("조명 명령 타입이 아닙니다.");
+        }
+
+        return DeviceCommand.builder()
+                .growSpace(growSpace)
+                .userPlant(userPlant)
+                .iotDevice(raspberryDevice)
+                .pumpChannel(null)
+                .commandType(commandType)
+                .durationSeconds(null)
+                .build();
+    }
+
     public void markProcessing() {
         if (this.commandStatus != CommandStatus.PENDING) {
             throw new IllegalStateException("대기 중인 명령만 처리 시작할 수 있습니다.");

@@ -1,5 +1,6 @@
 package com.greenlink.greenlink.service;
 
+import com.greenlink.greenlink.domain.ai.AiPlantImage;
 import com.greenlink.greenlink.domain.iot.CommandStatus;
 import com.greenlink.greenlink.domain.iot.CommandType;
 import com.greenlink.greenlink.domain.iot.DeviceCommand;
@@ -9,12 +10,16 @@ import com.greenlink.greenlink.domain.iot.GrowSpacePlant;
 import com.greenlink.greenlink.domain.iot.PlantImage;
 import com.greenlink.greenlink.domain.iot.PumpChannel;
 import com.greenlink.greenlink.domain.iot.RaspberrySensorData;
+import com.greenlink.greenlink.domain.iot.DeviceType;
+import com.greenlink.greenlink.domain.iot.IotDevice;
 import com.greenlink.greenlink.domain.plant.UserPlant;
 import com.greenlink.greenlink.domain.user.User;
 import com.greenlink.greenlink.dto.iot.IotAppDto;
+import com.greenlink.greenlink.repository.AiPlantImageRepository;
 import com.greenlink.greenlink.repository.DeviceCommandRepository;
 import com.greenlink.greenlink.repository.EspSensorDataRepository;
 import com.greenlink.greenlink.repository.GrowSpacePlantRepository;
+import com.greenlink.greenlink.repository.IotDeviceRepository;
 import com.greenlink.greenlink.repository.PlantImageRepository;
 import com.greenlink.greenlink.repository.PumpChannelRepository;
 import com.greenlink.greenlink.repository.RaspberrySensorDataRepository;
@@ -38,8 +43,10 @@ public class IotAppService {
     private final RaspberrySensorDataRepository raspberrySensorDataRepository;
     private final EspSensorDataRepository espSensorDataRepository;
     private final PlantImageRepository plantImageRepository;
+    private final AiPlantImageRepository aiPlantImageRepository;
     private final PumpChannelRepository pumpChannelRepository;
     private final DeviceCommandRepository deviceCommandRepository;
+    private final IotDeviceRepository iotDeviceRepository;
 
     /**
      * 내 식물 IoT 최신 상태 조회
@@ -48,7 +55,8 @@ public class IotAppService {
      * 1. 식물이 속한 재배 공간
      * 2. 재배 공간의 최신 라즈베리파이 환경 데이터
      * 3. 해당 식물의 최신 ESP 토양수분 데이터
-     * 4. 해당 식물의 최신 이미지
+     * 4. 해당 식물의 최신 원본 이미지
+     * 5. 해당 원본 이미지에 연결된 최신 AI 이미지
      */
     public IotAppDto.IotLatestResDto getLatestIotStatus(
             Long userId,
@@ -79,12 +87,21 @@ public class IotAppService {
                                         .orElse(null)
                         );
 
+        AiPlantImage latestAiImage = null;
+
+        if (latestImage != null) {
+            latestAiImage = aiPlantImageRepository
+                    .findTopByPlantImageAndDeletedFalseOrderByIdDesc(latestImage)
+                    .orElse(null);
+        }
+
         return IotAppDto.IotLatestResDto.of(
                 userPlant.getId(),
                 growSpace,
                 latestEnvironment,
                 latestSoil,
-                latestImage
+                latestImage,
+                latestAiImage
         );
     }
 
@@ -93,7 +110,7 @@ public class IotAppService {
      *
      * 기본 정책:
      * - 특정 userPlant 사진이 있으면 그것만 조회
-     * - 현재는 식물별 사진 기록을 우선으로 한다.
+     * - 각 원본 이미지에 연결된 AI 이미지가 있으면 aiImageUrl도 함께 내려준다.
      */
     public List<IotAppDto.PlantImageDto> getPlantImages(
             Long userId,
@@ -106,7 +123,16 @@ public class IotAppService {
         return plantImageRepository
                 .findAllByUserPlantAndDeletedFalseOrderByCapturedAtDesc(userPlant)
                 .stream()
-                .map(IotAppDto.PlantImageDto::from)
+                .map(plantImage -> {
+                    AiPlantImage aiPlantImage = aiPlantImageRepository
+                            .findTopByPlantImageAndDeletedFalseOrderByIdDesc(plantImage)
+                            .orElse(null);
+
+                    return IotAppDto.PlantImageDto.from(
+                            plantImage,
+                            aiPlantImage
+                    );
+                })
                 .toList();
     }
 
@@ -114,7 +140,7 @@ public class IotAppService {
      * 물 주기 요청
      *
      * Request Body 없음.
-     * 서버에서 고정 급수 시간 5초로 DeviceCommand를 생성한다.
+     * 서버에서 DeviceCommand를 생성한다.
      */
     @Transactional
     public IotAppDto.WaterCommandResDto requestWater(
@@ -145,6 +171,82 @@ public class IotAppService {
         DeviceCommand savedCommand = deviceCommandRepository.save(command);
 
         return IotAppDto.WaterCommandResDto.from(savedCommand);
+    }
+
+    @Transactional
+    public IotAppDto.LightCommandResDto requestLightOn(
+            Long userId,
+            Long userPlantId
+    ) {
+        return requestLightCommand(
+                userId,
+                userPlantId,
+                CommandType.LIGHT_ON
+        );
+    }
+
+    @Transactional
+    public IotAppDto.LightCommandResDto requestLightOff(
+            Long userId,
+            Long userPlantId
+    ) {
+        return requestLightCommand(
+                userId,
+                userPlantId,
+                CommandType.LIGHT_OFF
+        );
+    }
+
+    private IotAppDto.LightCommandResDto requestLightCommand(
+            Long userId,
+            Long userPlantId,
+            CommandType commandType
+    ) {
+        User user = findActiveUser(userId);
+
+        UserPlant userPlant = findMyUserPlant(userPlantId, user);
+
+        GrowSpace growSpace = findGrowSpaceByUserPlant(userPlant);
+
+        IotDevice raspberryDevice = iotDeviceRepository
+                .findFirstByGrowSpaceAndDeviceTypeAndActiveTrueAndDeletedFalse(
+                        growSpace,
+                        DeviceType.RASPBERRY_PI
+                )
+                .orElseThrow(() -> new IllegalStateException("재배 공간에 연결된 라즈베리파이가 없습니다."));
+
+        validateNoPendingLightCommand(userPlant);
+
+        DeviceCommand command = DeviceCommand.createLightCommand(
+                growSpace,
+                userPlant,
+                raspberryDevice,
+                commandType
+        );
+
+        DeviceCommand savedCommand = deviceCommandRepository.save(command);
+
+        return IotAppDto.LightCommandResDto.from(savedCommand);
+    }
+
+    private void validateNoPendingLightCommand(UserPlant userPlant) {
+        boolean lightOnExists = deviceCommandRepository
+                .existsByUserPlantAndCommandTypeAndCommandStatusInAndDeletedFalse(
+                        userPlant,
+                        CommandType.LIGHT_ON,
+                        List.of(CommandStatus.PENDING, CommandStatus.PROCESSING)
+                );
+
+        boolean lightOffExists = deviceCommandRepository
+                .existsByUserPlantAndCommandTypeAndCommandStatusInAndDeletedFalse(
+                        userPlant,
+                        CommandType.LIGHT_OFF,
+                        List.of(CommandStatus.PENDING, CommandStatus.PROCESSING)
+                );
+
+        if (lightOnExists || lightOffExists) {
+            throw new IllegalStateException("이미 처리 중인 조명 명령이 있습니다.");
+        }
     }
 
     private void validatePumpChannel(

@@ -95,6 +95,8 @@ public class SecurityConfig {
                         
                         .requestMatchers("/error").permitAll()
 
+                        .requestMatchers("/api/ai/**").permitAll()
+
                         // 그 외 API는 JWT 인증 필요
                         .anyRequest().authenticated()
                 )
