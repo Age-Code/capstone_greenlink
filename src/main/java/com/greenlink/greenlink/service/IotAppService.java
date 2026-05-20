@@ -15,6 +15,7 @@ import com.greenlink.greenlink.domain.iot.IotDevice;
 import com.greenlink.greenlink.domain.plant.UserPlant;
 import com.greenlink.greenlink.domain.user.User;
 import com.greenlink.greenlink.common.WateringBlockedException;
+import com.greenlink.greenlink.common.constants.IotThresholds;
 import com.greenlink.greenlink.dto.iot.IotAppDto;
 import com.greenlink.greenlink.repository.AiPlantImageRepository;
 import com.greenlink.greenlink.repository.DeviceCommandRepository;
@@ -36,8 +37,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class IotAppService {
-
-    private static final double TOO_WET_THRESHOLD_PERCENT = 80.0;
 
     private final UserRepository userRepository;
     private final UserPlantRepository userPlantRepository;
@@ -265,11 +264,11 @@ public class IotAppService {
 
         Double percent = latestSoil.getSoilMoisturePercent();
 
-        if (percent >= TOO_WET_THRESHOLD_PERCENT) {
+        if (percent >= IotThresholds.SOIL_MOISTURE_TOO_WET_PERCENT) {
             throw new WateringBlockedException(
                     userPlant.getId(),
                     percent,
-                    TOO_WET_THRESHOLD_PERCENT
+                    IotThresholds.SOIL_MOISTURE_TOO_WET_PERCENT
             );
         }
     }

@@ -1,5 +1,6 @@
 package com.greenlink.greenlink.service;
 
+import com.greenlink.greenlink.common.constants.S3Paths;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -18,8 +19,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class S3UploadService {
 
-    private static final String USER_PLANT_IMAGE_PREFIX = "greenlink/userplant/";
-
     private final S3Client s3Client;
 
     @Value("${cloud.aws.s3.bucket}")
@@ -36,7 +35,7 @@ public class S3UploadService {
 
         String originalFilename = file.getOriginalFilename();
         String storedFilename = createStoredFilename(originalFilename, userPlantId);
-        String key = USER_PLANT_IMAGE_PREFIX + storedFilename;
+        String key = S3Paths.USER_PLANT_IMAGE_PREFIX + storedFilename;
 
         try {
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()

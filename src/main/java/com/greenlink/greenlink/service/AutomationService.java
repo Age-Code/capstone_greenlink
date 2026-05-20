@@ -19,6 +19,7 @@ import com.greenlink.greenlink.domain.iot.PumpChannel;
 import com.greenlink.greenlink.domain.iot.RaspberrySensorData;
 import com.greenlink.greenlink.domain.plant.UserPlant;
 import com.greenlink.greenlink.domain.user.User;
+import com.greenlink.greenlink.common.constants.IotThresholds;
 import com.greenlink.greenlink.dto.AutomationDto;
 import com.greenlink.greenlink.repository.AutomationLogRepository;
 import com.greenlink.greenlink.repository.AutomationModelRepository;
@@ -545,7 +546,7 @@ public class AutomationService {
         Double fallbackThreshold = setting.getWaterThresholdPercent();
 
         if (fallbackThreshold == null) {
-            fallbackThreshold = 35.0;
+            fallbackThreshold = IotThresholds.DEFAULT_AUTO_WATER_THRESHOLD_PERCENT;
         }
 
         if (setting.getDecisionMode() == AutomationDecisionMode.RULE_BASED) {
@@ -575,7 +576,7 @@ public class AutomationService {
         Double fallbackThreshold = setting.getLightOnThresholdLux();
 
         if (fallbackThreshold == null) {
-            fallbackThreshold = 300.0;
+            fallbackThreshold = IotThresholds.DEFAULT_LIGHT_ON_THRESHOLD_LUX;
         }
 
         if (setting.getDecisionMode() == AutomationDecisionMode.RULE_BASED) {
@@ -605,7 +606,7 @@ public class AutomationService {
         Double fallbackThreshold = setting.getLightOffThresholdLux();
 
         if (fallbackThreshold == null) {
-            fallbackThreshold = 500.0;
+            fallbackThreshold = IotThresholds.DEFAULT_LIGHT_OFF_THRESHOLD_LUX;
         }
 
         if (setting.getDecisionMode() == AutomationDecisionMode.RULE_BASED) {

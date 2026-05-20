@@ -1,5 +1,6 @@
 package com.greenlink.greenlink.domain.automation;
 
+import com.greenlink.greenlink.common.constants.IotThresholds;
 import com.greenlink.greenlink.domain.plant.UserPlant;
 import com.greenlink.greenlink.domain.user.User;
 import jakarta.persistence.*;
@@ -102,7 +103,7 @@ public class AutomationSetting {
      */
     @Column(name = "water_threshold_percent", nullable = false)
     @Builder.Default
-    private Double waterThresholdPercent = 35.0;
+    private Double waterThresholdPercent = IotThresholds.DEFAULT_AUTO_WATER_THRESHOLD_PERCENT;
 
     /**
      * 자동 급수 쿨다운 시간
@@ -121,7 +122,7 @@ public class AutomationSetting {
      */
     @Column(name = "light_on_threshold_lux", nullable = false)
     @Builder.Default
-    private Double lightOnThresholdLux = 300.0;
+    private Double lightOnThresholdLux = IotThresholds.DEFAULT_LIGHT_ON_THRESHOLD_LUX;
 
     /**
      * LED OFF 기준 조도
@@ -131,7 +132,7 @@ public class AutomationSetting {
      */
     @Column(name = "light_off_threshold_lux", nullable = false)
     @Builder.Default
-    private Double lightOffThresholdLux = 500.0;
+    private Double lightOffThresholdLux = IotThresholds.DEFAULT_LIGHT_OFF_THRESHOLD_LUX;
 
     /**
      * 자동 조명 시작 시간
@@ -203,7 +204,7 @@ public class AutomationSetting {
         }
 
         if (waterThresholdPercent == null) {
-            waterThresholdPercent = 35.0;
+            waterThresholdPercent = IotThresholds.DEFAULT_AUTO_WATER_THRESHOLD_PERCENT;
         }
 
         if (waterCooldownMinutes == null) {
@@ -211,11 +212,11 @@ public class AutomationSetting {
         }
 
         if (lightOnThresholdLux == null) {
-            lightOnThresholdLux = 300.0;
+            lightOnThresholdLux = IotThresholds.DEFAULT_LIGHT_ON_THRESHOLD_LUX;
         }
 
         if (lightOffThresholdLux == null) {
-            lightOffThresholdLux = 500.0;
+            lightOffThresholdLux = IotThresholds.DEFAULT_LIGHT_OFF_THRESHOLD_LUX;
         }
 
         if (lightStartTime == null) {
@@ -339,10 +340,10 @@ public class AutomationSetting {
                 .autoOptimizeEnabled(false)
                 .decisionMode(AutomationDecisionMode.HYBRID)
                 .minLearningDataCount(30)
-                .waterThresholdPercent(35.0)
+                .waterThresholdPercent(IotThresholds.DEFAULT_AUTO_WATER_THRESHOLD_PERCENT)
                 .waterCooldownMinutes(30)
-                .lightOnThresholdLux(300.0)
-                .lightOffThresholdLux(500.0)
+                .lightOnThresholdLux(IotThresholds.DEFAULT_LIGHT_ON_THRESHOLD_LUX)
+                .lightOffThresholdLux(IotThresholds.DEFAULT_LIGHT_OFF_THRESHOLD_LUX)
                 .lightStartTime(LocalTime.of(8, 0))
                 .lightEndTime(LocalTime.of(18, 0))
                 .lightCooldownMinutes(10)
