@@ -14,6 +14,7 @@ import com.greenlink.greenlink.domain.iot.DeviceType;
 import com.greenlink.greenlink.domain.iot.IotDevice;
 import com.greenlink.greenlink.domain.plant.UserPlant;
 import com.greenlink.greenlink.domain.user.User;
+import com.greenlink.greenlink.common.WateringBlockedException;
 import com.greenlink.greenlink.dto.iot.IotAppDto;
 import com.greenlink.greenlink.repository.AiPlantImageRepository;
 import com.greenlink.greenlink.repository.DeviceCommandRepository;
@@ -35,6 +36,8 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class IotAppService {
+
+    private static final double TOO_WET_THRESHOLD_PERCENT = 80.0;
 
     private final UserRepository userRepository;
     private final UserPlantRepository userPlantRepository;
@@ -153,6 +156,8 @@ public class IotAppService {
 
         GrowSpace growSpace = findGrowSpaceByUserPlant(userPlant);
 
+        validateCanWater(userPlant);
+
         PumpChannel pumpChannel = pumpChannelRepository
                 .findByUserPlantAndActiveTrueAndDeletedFalse(userPlant)
                 .orElseThrow(() -> new IllegalStateException("해당 식물에 연결된 펌프 채널이 없습니다."));
@@ -246,6 +251,26 @@ public class IotAppService {
 
         if (lightOnExists || lightOffExists) {
             throw new IllegalStateException("이미 처리 중인 조명 명령이 있습니다.");
+        }
+    }
+
+    private void validateCanWater(UserPlant userPlant) {
+        EspSensorData latestSoil = espSensorDataRepository
+                .findFirstByUserPlantAndDeletedFalseOrderByMeasuredAtDesc(userPlant)
+                .orElse(null);
+
+        if (latestSoil == null || latestSoil.getSoilMoisturePercent() == null) {
+            return;
+        }
+
+        Double percent = latestSoil.getSoilMoisturePercent();
+
+        if (percent >= TOO_WET_THRESHOLD_PERCENT) {
+            throw new WateringBlockedException(
+                    userPlant.getId(),
+                    percent,
+                    TOO_WET_THRESHOLD_PERCENT
+            );
         }
     }
 

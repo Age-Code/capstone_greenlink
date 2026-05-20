@@ -235,6 +235,21 @@ public class IotAppDto {
     }
 
     /**
+     * 토양 수분 과다로 수동 물주기가 차단된 경우의 응답 DTO
+     */
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class WaterBlockedResDto {
+        private Long userPlantId;
+        private Double soilMoisturePercent;
+        private Double tooWetThresholdPercent;
+        private Boolean canWater;
+    }
+
+    /**
      * 조명 명령 응답 DTO
      *
      * POST /api/user-plants/{userPlantId}/iot/light/on

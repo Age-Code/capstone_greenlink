@@ -36,6 +36,18 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 토양 수분이 충분히 높은 상태의 수동 물주기 차단 처리
+     */
+    @ExceptionHandler(WateringBlockedException.class)
+    public ResponseEntity<ApiResponse<?>> handleWateringBlockedException(
+            WateringBlockedException e
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(ApiResponse.fail(e.getMessage(), e.getResponse()));
+    }
+
+    /**
      * 현재 상태상 수행할 수 없는 요청 처리
      *
      * 예:
