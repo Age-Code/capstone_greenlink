@@ -58,6 +58,17 @@ public interface DeviceCommandRepository extends JpaRepository<DeviceCommand, Lo
             Collection<CommandStatus> commandStatuses
     );
 
+    boolean existsByUserPlantAndCommandTypeAndRequestedAtAfterAndDeletedFalse(
+            UserPlant userPlant,
+            CommandType commandType,
+            LocalDateTime requestedAt
+    );
+
+    long countByUserPlantAndCommandTypeAndRequestedAtAfterAndDeletedFalse(
+            UserPlant userPlant,
+            CommandType commandType,
+            LocalDateTime requestedAt
+    );
 
     /**
      * 특정 식물의 특정 명령 타입 중 가장 최근 명령 조회

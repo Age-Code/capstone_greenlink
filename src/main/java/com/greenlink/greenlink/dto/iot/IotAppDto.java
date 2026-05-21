@@ -244,8 +244,12 @@ public class IotAppDto {
     @AllArgsConstructor
     public static class WaterBlockedResDto {
         private Long userPlantId;
+        private String reason;
         private Double soilMoisturePercent;
         private Double tooWetThresholdPercent;
+        private Integer cooldownSeconds;
+        private Integer windowSeconds;
+        private Integer maxRequests;
         private Boolean canWater;
     }
 

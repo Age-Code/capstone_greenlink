@@ -102,6 +102,7 @@ public class AutomationService {
                 request.getLightEndTime(),
                 request.getLightCooldownMinutes(),
                 request.getAutoOptimizeEnabled(),
+                request.getWateringSafetyEnabled(),
                 request.getDecisionMode(),
                 request.getMinLearningDataCount()
         );

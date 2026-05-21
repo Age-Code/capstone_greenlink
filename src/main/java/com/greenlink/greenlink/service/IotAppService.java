@@ -1,6 +1,7 @@
 package com.greenlink.greenlink.service;
 
 import com.greenlink.greenlink.domain.ai.AiPlantImage;
+import com.greenlink.greenlink.domain.automation.AutomationSetting;
 import com.greenlink.greenlink.domain.iot.CommandStatus;
 import com.greenlink.greenlink.domain.iot.CommandType;
 import com.greenlink.greenlink.domain.iot.DeviceCommand;
@@ -18,6 +19,7 @@ import com.greenlink.greenlink.common.WateringBlockedException;
 import com.greenlink.greenlink.common.constants.IotThresholds;
 import com.greenlink.greenlink.dto.iot.IotAppDto;
 import com.greenlink.greenlink.repository.AiPlantImageRepository;
+import com.greenlink.greenlink.repository.AutomationSettingRepository;
 import com.greenlink.greenlink.repository.DeviceCommandRepository;
 import com.greenlink.greenlink.repository.EspSensorDataRepository;
 import com.greenlink.greenlink.repository.GrowSpacePlantRepository;
@@ -31,6 +33,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -49,6 +52,7 @@ public class IotAppService {
     private final PumpChannelRepository pumpChannelRepository;
     private final DeviceCommandRepository deviceCommandRepository;
     private final IotDeviceRepository iotDeviceRepository;
+    private final AutomationSettingRepository automationSettingRepository;
 
     /**
      * 내 식물 IoT 최신 상태 조회
@@ -155,7 +159,7 @@ public class IotAppService {
 
         GrowSpace growSpace = findGrowSpaceByUserPlant(userPlant);
 
-        validateCanWater(userPlant);
+        validateSoilMoistureNotTooWet(userPlant);
 
         PumpChannel pumpChannel = pumpChannelRepository
                 .findByUserPlantAndActiveTrueAndDeletedFalse(userPlant)
@@ -163,7 +167,14 @@ public class IotAppService {
 
         validatePumpChannel(growSpace, userPlant, pumpChannel);
 
-        validateNoPendingWaterCommand(userPlant);
+        // [GreenLink] 급수 보호모드가 켜진 경우에만 연속 물주기 제한을 적용한다.
+        if (isWateringSafetyEnabled(userPlant)) {
+            validateNoPendingWaterCommand(userPlant, pumpChannel);
+
+            validateWaterCooldown(userPlant);
+
+            validateWaterRequestLimit(userPlant);
+        }
 
         DeviceCommand command = DeviceCommand.createWaterCommand(
                 growSpace,
@@ -253,7 +264,7 @@ public class IotAppService {
         }
     }
 
-    private void validateCanWater(UserPlant userPlant) {
+    private void validateSoilMoistureNotTooWet(UserPlant userPlant) {
         EspSensorData latestSoil = espSensorDataRepository
                 .findFirstByUserPlantAndDeletedFalseOrderByMeasuredAtDesc(userPlant)
                 .orElse(null);
@@ -265,7 +276,7 @@ public class IotAppService {
         Double percent = latestSoil.getSoilMoisturePercent();
 
         if (percent >= IotThresholds.SOIL_MOISTURE_TOO_WET_PERCENT) {
-            throw new WateringBlockedException(
+            throw WateringBlockedException.tooWet(
                     userPlant.getId(),
                     percent,
                     IotThresholds.SOIL_MOISTURE_TOO_WET_PERCENT
@@ -299,16 +310,76 @@ public class IotAppService {
         }
     }
 
-    private void validateNoPendingWaterCommand(UserPlant userPlant) {
-        boolean exists = deviceCommandRepository
+    private boolean isWateringSafetyEnabled(UserPlant userPlant) {
+        return automationSettingRepository
+                .findByUserPlantAndDeletedFalse(userPlant)
+                .map(setting -> setting.getWateringSafetyEnabled() == null
+                        || Boolean.TRUE.equals(setting.getWateringSafetyEnabled()))
+                .orElse(true);
+    }
+
+    private void validateNoPendingWaterCommand(
+            UserPlant userPlant,
+            PumpChannel pumpChannel
+    ) {
+        // [GreenLink] 미처리 WATER command가 있으면 중복 물주기를 방지한다.
+        boolean existsByUserPlant = deviceCommandRepository
                 .existsByUserPlantAndCommandTypeAndCommandStatusInAndDeletedFalse(
                         userPlant,
                         CommandType.WATER,
                         List.of(CommandStatus.PENDING, CommandStatus.PROCESSING)
                 );
 
-        if (exists) {
-            throw new IllegalStateException("이미 처리 중인 급수 명령이 있습니다.");
+        boolean existsByPumpChannel = deviceCommandRepository
+                .existsByPumpChannelAndCommandTypeAndCommandStatusInAndDeletedFalse(
+                        pumpChannel,
+                        CommandType.WATER,
+                        List.of(CommandStatus.PENDING, CommandStatus.PROCESSING)
+                );
+
+        if (existsByUserPlant || existsByPumpChannel) {
+            throw WateringBlockedException.pendingWaterCommand(userPlant.getId());
+        }
+    }
+
+    private void validateWaterCooldown(UserPlant userPlant) {
+        // [GreenLink] 토양 수분센서는 주기적으로 갱신되므로 연속 물주기 요청을 서버에서 제한한다.
+        LocalDateTime after = LocalDateTime.now()
+                .minusSeconds(IotThresholds.WATER_COOLDOWN_SECONDS);
+
+        boolean existsRecent = deviceCommandRepository
+                .existsByUserPlantAndCommandTypeAndRequestedAtAfterAndDeletedFalse(
+                        userPlant,
+                        CommandType.WATER,
+                        after
+                );
+
+        if (existsRecent) {
+            throw WateringBlockedException.cooldown(
+                    userPlant.getId(),
+                    IotThresholds.WATER_COOLDOWN_SECONDS
+            );
+        }
+    }
+
+    private void validateWaterRequestLimit(UserPlant userPlant) {
+        // [GreenLink] 10분 내 3회까지만 물주기를 허용해 과도한 급수를 막는다.
+        LocalDateTime after = LocalDateTime.now()
+                .minusSeconds(IotThresholds.WATER_WINDOW_SECONDS);
+
+        long recentCount = deviceCommandRepository
+                .countByUserPlantAndCommandTypeAndRequestedAtAfterAndDeletedFalse(
+                        userPlant,
+                        CommandType.WATER,
+                        after
+                );
+
+        if (recentCount >= IotThresholds.WATER_MAX_REQUESTS_PER_WINDOW) {
+            throw WateringBlockedException.requestLimit(
+                    userPlant.getId(),
+                    IotThresholds.WATER_WINDOW_SECONDS,
+                    IotThresholds.WATER_MAX_REQUESTS_PER_WINDOW
+            );
         }
     }
 

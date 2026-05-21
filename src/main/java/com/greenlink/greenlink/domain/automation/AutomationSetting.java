@@ -71,6 +71,19 @@ public class AutomationSetting {
     private Boolean autoOptimizeEnabled = false;
 
     /**
+     * 급수 보호모드 사용 여부
+     *
+     * true:
+     * - 수분 과다, 미처리 명령, 쿨다운, 단시간 과다 요청을 차단
+     *
+     * false:
+     * - 시연/테스트를 위해 연속 물주기 제한만 완화
+     */
+    @Column(name = "watering_safety_enabled", nullable = false)
+    @Builder.Default
+    private Boolean wateringSafetyEnabled = true;
+
+    /**
      * 자동화 판단 방식
      *
      * RULE_BASED:
@@ -195,6 +208,10 @@ public class AutomationSetting {
             autoOptimizeEnabled = false;
         }
 
+        if (wateringSafetyEnabled == null) {
+            wateringSafetyEnabled = true;
+        }
+
         if (decisionMode == null) {
             decisionMode = AutomationDecisionMode.HYBRID;
         }
@@ -253,6 +270,7 @@ public class AutomationSetting {
             LocalTime lightEndTime,
             Integer lightCooldownMinutes,
             Boolean autoOptimizeEnabled,
+            Boolean wateringSafetyEnabled,
             AutomationDecisionMode decisionMode,
             Integer minLearningDataCount
     ) {
@@ -294,6 +312,10 @@ public class AutomationSetting {
 
         if (autoOptimizeEnabled != null) {
             this.autoOptimizeEnabled = autoOptimizeEnabled;
+        }
+
+        if (wateringSafetyEnabled != null) {
+            this.wateringSafetyEnabled = wateringSafetyEnabled;
         }
 
         if (decisionMode != null) {
@@ -338,6 +360,7 @@ public class AutomationSetting {
                 .autoWaterEnabled(false)
                 .autoLightEnabled(false)
                 .autoOptimizeEnabled(false)
+                .wateringSafetyEnabled(true)
                 .decisionMode(AutomationDecisionMode.HYBRID)
                 .minLearningDataCount(30)
                 .waterThresholdPercent(IotThresholds.DEFAULT_AUTO_WATER_THRESHOLD_PERCENT)

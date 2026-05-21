@@ -40,6 +40,11 @@ public class AutomationDto {
         private Boolean autoOptimizeEnabled;
 
         /**
+         * 급수 보호모드 사용 여부
+         */
+        private Boolean wateringSafetyEnabled;
+
+        /**
          * 자동화 판단 방식
          *
          * RULE_BASED / LEARNING_BASED / HYBRID
@@ -76,6 +81,9 @@ public class AutomationDto {
                     .autoWaterEnabled(setting.getAutoWaterEnabled())
                     .autoLightEnabled(setting.getAutoLightEnabled())
                     .autoOptimizeEnabled(setting.getAutoOptimizeEnabled())
+                    .wateringSafetyEnabled(setting.getWateringSafetyEnabled() == null
+                            ? true
+                            : setting.getWateringSafetyEnabled())
                     .decisionMode(setting.getDecisionMode())
                     .minLearningDataCount(setting.getMinLearningDataCount())
                     .waterThresholdPercent(setting.getWaterThresholdPercent())
@@ -113,6 +121,11 @@ public class AutomationDto {
          * 학습 기반 자동 최적화 사용 여부
          */
         private Boolean autoOptimizeEnabled;
+
+        /**
+         * 급수 보호모드 사용 여부
+         */
+        private Boolean wateringSafetyEnabled;
 
         /**
          * 자동화 판단 방식
