@@ -121,4 +121,39 @@ public class IotAppController {
 
         return ApiResponse.success("조명 끄기 명령이 요청되었습니다.", response);
     }
+
+    /**
+     * 라즈베리파이 환경 센서 새로고침 요청
+     *
+     * POST /api/user-plants/{userPlantId}/iot/refresh
+     *
+     * SENSOR_REFRESH command를 생성한다.
+     * 대상: 온도, 습도, 조도
+     * 제외: ESP32 토양수분
+     */
+    @PostMapping("/refresh")
+    public ApiResponse<IotAppDto.SensorRefreshResDto> requestSensorRefresh(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long userPlantId
+    ) {
+        IotAppDto.SensorRefreshResDto response =
+                iotAppService.requestSensorRefresh(
+                        userDetails.getUserId(),
+                        userPlantId
+                );
+
+        return ApiResponse.success(sensorRefreshMessage(response), response);
+    }
+
+    private String sensorRefreshMessage(IotAppDto.SensorRefreshResDto response) {
+        if (!Boolean.TRUE.equals(response.getAlreadyPending())) {
+            return "센서 새로고침 명령이 생성되었습니다.";
+        }
+
+        if ("SENSOR_REFRESH_COOLDOWN".equals(response.getDuplicateReason())) {
+            return "방금 센서 새로고침을 요청했습니다. 잠시 후 최신 상태를 다시 확인해주세요.";
+        }
+
+        return "이미 센서 새로고침 명령이 대기 중입니다.";
+    }
 }

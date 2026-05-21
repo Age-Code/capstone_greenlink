@@ -35,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -212,6 +213,49 @@ public class IotAppService {
         );
     }
 
+    @Transactional
+    public IotAppDto.SensorRefreshResDto requestSensorRefresh(
+            Long userId,
+            Long userPlantId
+    ) {
+        User user = findActiveUser(userId);
+
+        UserPlant userPlant = findMyUserPlant(userPlantId, user);
+
+        GrowSpace growSpace = findGrowSpaceByUserPlant(userPlant);
+
+        IotDevice raspberryDevice = findActiveRaspberryDevice(growSpace);
+
+        return findPendingSensorRefreshCommand(growSpace, raspberryDevice)
+                .map(command -> IotAppDto.SensorRefreshResDto.from(
+                        command,
+                        true,
+                        "PENDING_SENSOR_REFRESH"
+                ))
+                .orElseGet(() -> findRecentSensorRefreshCommand(growSpace, raspberryDevice)
+                        .map(command -> IotAppDto.SensorRefreshResDto.from(
+                                command,
+                                true,
+                                "SENSOR_REFRESH_COOLDOWN"
+                        ))
+                        .orElseGet(() -> {
+                            // [GreenLink] SENSOR_REFRESH는 라즈베리파이 온도/습도/조도만 즉시 갱신한다.
+                            DeviceCommand command = DeviceCommand.createSensorRefreshCommand(
+                                    growSpace,
+                                    userPlant,
+                                    raspberryDevice
+                            );
+
+                            DeviceCommand savedCommand = deviceCommandRepository.save(command);
+
+                            return IotAppDto.SensorRefreshResDto.from(
+                                    savedCommand,
+                                    false,
+                                    null
+                            );
+                        }));
+    }
+
     private IotAppDto.LightCommandResDto requestLightCommand(
             Long userId,
             Long userPlantId,
@@ -223,12 +267,7 @@ public class IotAppService {
 
         GrowSpace growSpace = findGrowSpaceByUserPlant(userPlant);
 
-        IotDevice raspberryDevice = iotDeviceRepository
-                .findFirstByGrowSpaceAndDeviceTypeAndActiveTrueAndDeletedFalse(
-                        growSpace,
-                        DeviceType.RASPBERRY_PI
-                )
-                .orElseThrow(() -> new IllegalStateException("재배 공간에 연결된 라즈베리파이가 없습니다."));
+        IotDevice raspberryDevice = findActiveRaspberryDevice(growSpace);
 
         validateNoPendingLightCommand(userPlant);
 
@@ -242,6 +281,44 @@ public class IotAppService {
         DeviceCommand savedCommand = deviceCommandRepository.save(command);
 
         return IotAppDto.LightCommandResDto.from(savedCommand);
+    }
+
+    private IotDevice findActiveRaspberryDevice(GrowSpace growSpace) {
+        return iotDeviceRepository
+                .findFirstByGrowSpaceAndDeviceTypeAndActiveTrueAndDeletedFalse(
+                        growSpace,
+                        DeviceType.RASPBERRY_PI
+                )
+                .orElseThrow(() -> new IllegalStateException("재배 공간에 연결된 라즈베리파이가 없습니다."));
+    }
+
+    private Optional<DeviceCommand> findPendingSensorRefreshCommand(
+            GrowSpace growSpace,
+            IotDevice raspberryDevice
+    ) {
+        return deviceCommandRepository
+                .findTopByGrowSpaceAndIotDeviceAndCommandTypeAndCommandStatusInAndDeletedFalseOrderByRequestedAtDesc(
+                        growSpace,
+                        raspberryDevice,
+                        CommandType.SENSOR_REFRESH,
+                        List.of(CommandStatus.PENDING, CommandStatus.PROCESSING)
+                );
+    }
+
+    private Optional<DeviceCommand> findRecentSensorRefreshCommand(
+            GrowSpace growSpace,
+            IotDevice raspberryDevice
+    ) {
+        LocalDateTime after = LocalDateTime.now()
+                .minusSeconds(IotThresholds.SENSOR_REFRESH_COOLDOWN_SECONDS);
+
+        return deviceCommandRepository
+                .findTopByGrowSpaceAndIotDeviceAndCommandTypeAndRequestedAtAfterAndDeletedFalseOrderByRequestedAtDesc(
+                        growSpace,
+                        raspberryDevice,
+                        CommandType.SENSOR_REFRESH,
+                        after
+                );
     }
 
     private void validateNoPendingLightCommand(UserPlant userPlant) {

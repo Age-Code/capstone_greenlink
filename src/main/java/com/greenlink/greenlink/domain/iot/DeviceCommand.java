@@ -140,6 +140,21 @@ public class DeviceCommand {
                 .build();
     }
 
+    public static DeviceCommand createSensorRefreshCommand(
+            GrowSpace growSpace,
+            UserPlant userPlant,
+            IotDevice raspberryDevice
+    ) {
+        return DeviceCommand.builder()
+                .growSpace(growSpace)
+                .userPlant(userPlant)
+                .iotDevice(raspberryDevice)
+                .pumpChannel(null)
+                .commandType(CommandType.SENSOR_REFRESH)
+                .durationSeconds(null)
+                .build();
+    }
+
     public void markProcessing() {
         if (this.commandStatus != CommandStatus.PENDING) {
             throw new IllegalStateException("대기 중인 명령만 처리 시작할 수 있습니다.");

@@ -58,6 +58,13 @@ public interface DeviceCommandRepository extends JpaRepository<DeviceCommand, Lo
             Collection<CommandStatus> commandStatuses
     );
 
+    Optional<DeviceCommand> findTopByGrowSpaceAndIotDeviceAndCommandTypeAndCommandStatusInAndDeletedFalseOrderByRequestedAtDesc(
+            GrowSpace growSpace,
+            IotDevice iotDevice,
+            CommandType commandType,
+            Collection<CommandStatus> commandStatuses
+    );
+
     boolean existsByUserPlantAndCommandTypeAndRequestedAtAfterAndDeletedFalse(
             UserPlant userPlant,
             CommandType commandType,
@@ -66,6 +73,13 @@ public interface DeviceCommandRepository extends JpaRepository<DeviceCommand, Lo
 
     long countByUserPlantAndCommandTypeAndRequestedAtAfterAndDeletedFalse(
             UserPlant userPlant,
+            CommandType commandType,
+            LocalDateTime requestedAt
+    );
+
+    Optional<DeviceCommand> findTopByGrowSpaceAndIotDeviceAndCommandTypeAndRequestedAtAfterAndDeletedFalseOrderByRequestedAtDesc(
+            GrowSpace growSpace,
+            IotDevice iotDevice,
             CommandType commandType,
             LocalDateTime requestedAt
     );

@@ -11,6 +11,7 @@ import com.greenlink.greenlink.domain.ai.AiPlantImage;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class IotAppDto {
 
@@ -251,6 +252,49 @@ public class IotAppDto {
         private Integer windowSeconds;
         private Integer maxRequests;
         private Boolean canWater;
+    }
+
+    /**
+     * 라즈베리파이 환경 센서 새로고침 명령 응답 DTO
+     *
+     * SENSOR_REFRESH는 온도/습도/조도만 즉시 측정하도록 요청한다.
+     * ESP32 토양수분은 기존 주기 업로드 값을 그대로 사용한다.
+     */
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SensorRefreshResDto {
+        private Long userPlantId;
+        private Long commandId;
+        private CommandType commandType;
+        private CommandStatus commandStatus;
+        private String target;
+        private Boolean alreadyPending;
+        private String duplicateReason;
+        private List<String> refreshTargets;
+        private List<String> excludedTargets;
+        private LocalDateTime requestedAt;
+
+        public static SensorRefreshResDto from(
+                DeviceCommand command,
+                boolean alreadyPending,
+                String duplicateReason
+        ) {
+            return SensorRefreshResDto.builder()
+                    .userPlantId(command.getUserPlant().getId())
+                    .commandId(command.getId())
+                    .commandType(command.getCommandType())
+                    .commandStatus(command.getCommandStatus())
+                    .target("RASPBERRY_PI")
+                    .alreadyPending(alreadyPending)
+                    .duplicateReason(duplicateReason)
+                    .refreshTargets(List.of("TEMPERATURE", "HUMIDITY", "LIGHT"))
+                    .excludedTargets(List.of("SOIL_MOISTURE"))
+                    .requestedAt(command.getRequestedAt())
+                    .build();
+        }
     }
 
     /**
